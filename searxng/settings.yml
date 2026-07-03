@@ -15,6 +15,22 @@ search:
   formats:
     - html
     - json
+  # Default suspension times are hours long; one burst of queries would
+  # otherwise blank out research runs for the rest of the day.
+  suspended_times:
+    SearxEngineTooManyRequests: 60
+    SearxEngineCaptcha: 300
+    SearxEngineAccessDenied: 60
+
+# Enable extra general engines for redundancy — with only the defaults, a few
+# CAPTCHA/rate-limit suspensions can zero out every search.
+engines:
+  - name: bing
+    disabled: false
+  - name: mojeek
+    disabled: false
+  - name: qwant
+    disabled: false
 
 valkey:
   url: valkey://redis:6379/0
