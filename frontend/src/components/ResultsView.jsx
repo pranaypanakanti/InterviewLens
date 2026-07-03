@@ -58,9 +58,9 @@ export default function ResultsView({ result, onNewSearch }) {
 
       {result.limited_data && (
         <div className="no-print mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Limited public interview data for this company — some questions below are role- and
-          skill-based (marked <span className="font-semibold">generic</span>) rather than
-          company-reported.
+          Limited public interview data for <span className="font-semibold">{result.company}</span> —
+          showing role- and skill-based questions instead of company-reported ones. Sources shown
+          are real, but describe the role/skills in general, not this company&apos;s process.
         </div>
       )}
 

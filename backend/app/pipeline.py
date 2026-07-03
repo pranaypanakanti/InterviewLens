@@ -47,6 +47,17 @@ def build_queries(entities: dict) -> list[str]:
     return queries
 
 
+_LEGAL_SUFFIXES = {"pvt", "ltd", "inc", "llc", "limited", "corp", "corporation", "co", "gmbh", "plc"}
+
+
+def _company_needle(company: str) -> str:
+    """Normalized company name without legal suffixes, for mention detection."""
+    words = [w for w in company.lower().replace(",", " ").replace(".", " ").split()]
+    while words and words[-1] in _LEGAL_SUFFIXES:
+        words.pop()
+    return " ".join(words)
+
+
 async def run_pipeline(
     job: Job,
     jd_text: str,
@@ -101,6 +112,8 @@ async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started
     await job.publish("searching", f"Searching the web… 0/{len(queries)} queries", 15)
     all_results: dict[str, dict] = {}  # url -> result
     for i, q in enumerate(queries, 1):
+        if i > 1:
+            await asyncio.sleep(1.0)  # politeness gap so upstream engines don't throttle
         for r in await searxng.search(q):
             all_results.setdefault(r["url"], r)
         await job.publish(
@@ -150,6 +163,13 @@ async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started
 
     # 6. Question extraction -------------------------------------------------
     docs = [(url, text) for url, text in fetched.items()] + snippet_docs
+    # Company-mention detection: a source only counts as company-reported
+    # evidence if its text (or title/snippet) actually names the company.
+    needle = _company_needle(company) if company.lower() != "unknown" else ""
+    mentions_company: dict[str, bool] = {}
+    for url, text in docs:
+        blob = f"{all_results.get(url, {}).get('title', '')} {text}".lower()
+        mentions_company[url] = bool(needle) and needle in blob
     raw_questions: list[dict] = []
     for i, (url, text) in enumerate(docs, 1):
         raw_questions += await extract_questions_from_doc(text, url, company, title)
@@ -165,7 +185,11 @@ async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started
     ranked = await cluster_and_rank(raw_questions)
 
     # 8. Fallback top-up: never return fewer than MIN_QUESTIONS ---------------
-    limited_data = len([q for q in ranked if not q["is_generic"]]) < 8
+    # "Limited data" means few sources actually name the company — skill-based
+    # sources are real evidence for the role, but not company-reported.
+    for q in ranked:
+        q["company_reported"] = any(mentions_company.get(u, False) for u in q["sources"])
+    limited_data = len([q for q in ranked if q["company_reported"]]) < 8
     if len(ranked) < settings.MIN_QUESTIONS:
         need = settings.MIN_QUESTIONS - len(ranked) + 2
         await job.publish(
@@ -184,6 +208,7 @@ async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started
                         "frequency": 0,
                         "sources": [],
                         "is_generic": True,
+                        "company_reported": False,
                     }
                 )
 
