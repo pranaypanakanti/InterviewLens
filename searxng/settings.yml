@@ -1,0 +1,20 @@
+# InterviewLens SearXNG config.
+# Key deviations from defaults (both REQUIRED for the app to work):
+#   1. search.formats includes "json" — the backend consumes the JSON API,
+#      which is disabled by default (every request would 403 without this).
+#   2. server.limiter is off — the backend is the only client, on localhost.
+use_default_settings: true
+
+server:
+  secret_key: "da685df39a5c2ca591020e15355535a06686adad81c2932b52458e2507ad7a5e"
+  limiter: false
+  public_instance: false
+  image_proxy: false
+
+search:
+  formats:
+    - html
+    - json
+
+valkey:
+  url: valkey://redis:6379/0
