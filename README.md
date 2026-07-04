@@ -26,6 +26,9 @@ docker compose up --build
 > Windows/WSL2 is unreliable; the backend container reaches host Ollama via
 > `host.docker.internal:11434`. See [setup.md](setup.md) for details and troubleshooting.
 
+📖 **New here? Read the [User Guide](USER-GUIDE.md)** — step-by-step setup, how to use the
+app, and options for deploying it beyond your own machine.
+
 ## How it works
 
 ```
