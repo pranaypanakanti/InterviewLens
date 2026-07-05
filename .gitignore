@@ -1,5 +1,8 @@
 data/
 !data/.gitkeep
+# Local-only docs, not published to GitHub
+InterviewPrep-Fablify-Plan.md
+DEPLOYMENT.md
 node_modules/
 dist/
 __pycache__/

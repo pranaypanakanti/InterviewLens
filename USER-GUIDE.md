@@ -119,19 +119,23 @@ or re-run after the posting changes (a different JD text re-triggers extraction)
 
 ## Part 3 — Deploying it beyond your machine
 
-There is a dedicated, detailed guide for this: **[DEPLOYMENT.md](DEPLOYMENT.md)**. It covers,
-with steps, sizing, providers, and a cost comparison:
+The realistic paths, from cheapest up:
 
-- **Option A ($0):** keep everything on your PC and reach it from anywhere via
-  Tailscale or Cloudflare Tunnel — the recommended first step.
-- **Option B ($0–9/mo):** move the whole stack to one small CPU VPS (Oracle free tier or
-  Hetzner ARM) and run it as an always-on service with HTTPS + login in front.
-- **Option C (usage-based):** hourly GPU rentals only when Quality-mode speed matters.
-- **Option D:** what would need re-architecting before it could serve multiple real users.
+- **$0 — keep it on your PC, reach it from anywhere:** install Tailscale on your PC and
+  your other devices, then open `http://<pc-tailscale-ip>:3000` from any network. No exposed
+  ports, no server rental. (Cloudflare Tunnel + Access is the alternative if you want a real
+  `https://` URL.) The recommended first step.
+- **$0–9/mo — one small CPU VPS as an always-on service:** move the whole stack to a Linux
+  VM (Oracle Cloud's free A1 tier or a Hetzner ARM box). On Linux, Ollama runs fine in
+  Docker — add it as a compose service and point `OLLAMA_BASE_URL` at it. Put Caddy in
+  front for HTTPS + basic-auth (the app has no login of its own), set
+  `restart: unless-stopped` on all containers, and back up `./data/app.db` nightly.
+- **Usage-based GPU:** if Quality mode is too slow on CPU, rent a GPU by the hour
+  (RunPod/Vast.ai, ~$0.10–0.25/hr) only while you're actively prepping. Avoid a 24/7 GPU
+  VM — worst value for a background-research workload like this one.
 
-The short version of the cost-efficient strategy: start with Tailscale (free, ten minutes),
-move to a cheap ARM VPS only when "my PC must stay on" becomes annoying, and don't rent a
-24/7 GPU — this app tolerates slow background runs.
+The cost-efficient strategy in one line: start with Tailscale (free, ten minutes), move to
+a cheap ARM VPS only when "my PC must stay on" becomes annoying, and never pay for idle GPU.
 
 ### What never changes
 

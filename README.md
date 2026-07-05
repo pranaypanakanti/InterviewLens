@@ -8,7 +8,7 @@ prep sheet of categorized question cards — each with an answer tailored to *yo
 - The internet is used **only for web search**, through a self-hosted [SearXNG](https://github.com/searxng/searxng) metasearch instance.
 - One command to run: `docker compose up`.
 
-📖 **Docs:** [User Guide](USER-GUIDE.md) (setup & usage) · [Deployment Guide](DEPLOYMENT.md) (moving it to the cloud) · [setup.md](setup.md) (install troubleshooting)
+📖 **Docs:** [User Guide](USER-GUIDE.md) (setup & usage) · [setup.md](setup.md) (install troubleshooting)
 
 ## Features
 
@@ -111,8 +111,8 @@ docker compose up --build
 
 > **On Windows, Ollama must run natively on the host, not in Docker** — GPU passthrough for
 > consumer GPUs under WSL2 is unreliable. The backend container reaches host Ollama via
-> `host.docker.internal:11434`. On Linux servers, Ollama in Docker is fine
-> (see the [Deployment Guide](DEPLOYMENT.md)).
+> `host.docker.internal:11434`. On Linux servers, Ollama in Docker is fine —
+> point `OLLAMA_BASE_URL` at the container instead.
 
 ## Configuration
 
@@ -134,4 +134,8 @@ the same as a header badge.
 
 Developed and tuned on an NVIDIA GTX 1650 (4 GB VRAM), i5-12450H, 16 GB RAM, Windows 11.
 The 3B model fits fully on the GPU; the 7B answer model partially offloads to CPU (expected).
-CPU-only machines work too — just slower. See [DEPLOYMENT.md](DEPLOYMENT.md) for cloud sizing.
+CPU-only machines work too — just slower.
+
+## License
+
+[MIT](LICENSE)
