@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import QuestionCard from './QuestionCard'
+import { sourceNames } from '../sourceNames'
 
 const CATEGORY_LABELS = {
   all: 'All',
@@ -59,8 +60,7 @@ export default function ResultsView({ result, onNewSearch }) {
       {result.limited_data && (
         <div className="no-print mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Limited public interview data for <span className="font-semibold">{result.company}</span> —
-          showing role- and skill-based questions instead of company-reported ones. Sources shown
-          are real, but describe the role/skills in general, not this company&apos;s process.
+          showing role- and skill-based questions instead of company-reported ones.
         </div>
       )}
 
@@ -108,10 +108,7 @@ function PrintSheet({ result }) {
         <div key={i} style={{ marginBottom: 18, breakInside: 'avoid' }}>
           <p style={{ fontWeight: 700, fontSize: 14 }}>
             {i + 1}. {q.question}{' '}
-            <span style={{ fontWeight: 400, color: '#888', fontSize: 11 }}>
-              [{q.category}
-              {q.is_generic ? ' · generic' : ` · seen in ${q.frequency} source${q.frequency > 1 ? 's' : ''}`}]
-            </span>
+            <span style={{ fontWeight: 400, color: '#888', fontSize: 11 }}>[{q.category}]</span>
           </p>
           <p style={{ fontSize: 12.5, whiteSpace: 'pre-wrap', margin: '4px 0' }}>{q.answer}</p>
           {q.why_asked && (
@@ -124,9 +121,9 @@ function PrintSheet({ result }) {
               <b>Tips:</b> {q.tips}
             </p>
           )}
-          {q.sources?.length > 0 && (
-            <p style={{ fontSize: 10.5, color: '#777', wordBreak: 'break-all' }}>
-              Sources: {q.sources.join('  ·  ')}
+          {sourceNames(q.sources).length > 0 && (
+            <p style={{ fontSize: 10.5, color: '#777' }}>
+              Sources: {sourceNames(q.sources).join(' · ')}
             </p>
           )}
         </div>
@@ -149,17 +146,13 @@ function downloadMarkdown(result) {
     )
   }
   for (const [i, q] of result.questions.entries()) {
-    const badge = q.is_generic ? 'generic' : `seen in ${q.frequency} source${q.frequency > 1 ? 's' : ''}`
     lines.push(`## ${i + 1}. ${q.question}`)
-    lines.push(`*Category: ${q.category} · ${badge}*`, '')
+    lines.push(`*Category: ${q.category}*`, '')
     lines.push(q.answer, '')
     if (q.why_asked) lines.push(`**Why asked:** ${q.why_asked}`, '')
     if (q.tips) lines.push(`**Tips:** ${q.tips}`, '')
-    if (q.sources?.length) {
-      lines.push('**Sources:**')
-      for (const s of q.sources) lines.push(`- ${s}`)
-      lines.push('')
-    }
+    const names = sourceNames(q.sources)
+    if (names.length) lines.push(`**Sources:** ${names.join(' · ')}`, '')
   }
   const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
   const a = document.createElement('a')

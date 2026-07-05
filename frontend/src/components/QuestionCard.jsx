@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { sourceNames } from '../sourceNames'
 
 const CATEGORY_COLORS = {
   technical: 'bg-sky-50 text-sky-700 border-sky-200',
@@ -11,6 +12,7 @@ const CATEGORY_COLORS = {
 
 export default function QuestionCard({ q, index }) {
   const [open, setOpen] = useState(false)
+  const names = sourceNames(q.sources)
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <button
@@ -30,15 +32,6 @@ export default function QuestionCard({ q, index }) {
             >
               {q.category}
             </span>
-            {q.is_generic ? (
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs text-slate-500">
-                generic (role/skill-based)
-              </span>
-            ) : (
-              <span className="rounded-full border border-accent-100 bg-accent-50 px-2.5 py-0.5 text-xs font-medium text-accent-700">
-                seen in {q.frequency} source{q.frequency > 1 ? 's' : ''}
-              </span>
-            )}
           </div>
         </div>
         <span className={`mt-1 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}>
@@ -61,19 +54,16 @@ export default function QuestionCard({ q, index }) {
               {q.tips}
             </p>
           )}
-          {q.sources?.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {q.sources.map((s) => (
-                <a
-                  key={s}
-                  href={s}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="max-w-full truncate rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-accent-700 hover:border-accent-500"
-                  title={s}
+          {names.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-400">Sources:</span>
+              {names.map((name) => (
+                <span
+                  key={name}
+                  className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600"
                 >
-                  {hostOf(s)}
-                </a>
+                  {name}
+                </span>
               ))}
             </div>
           )}
@@ -81,12 +71,4 @@ export default function QuestionCard({ q, index }) {
       )}
     </div>
   )
-}
-
-function hostOf(url) {
-  try {
-    return new URL(url).host.replace(/^www\./, '')
-  } catch {
-    return url
-  }
 }

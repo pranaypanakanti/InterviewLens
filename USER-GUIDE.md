@@ -2,7 +2,8 @@
 
 InterviewLens takes a **job description + your resume**, researches the web for the interview
 questions actually asked at that company for that role, and gives you a prep sheet of
-categorized question cards — each with an answer tailored to *your* resume and real source links.
+categorized question cards — each with an answer tailored to *your* resume and the names of
+the sites that reported the question.
 
 Everything runs on your machine. No API keys, no cloud LLMs, no accounts.
 
@@ -74,15 +75,13 @@ To stop the app: `docker compose down` (your cached research runs survive in `./
 - **Header** shows the detected company + role, question count, and sources read.
 - **Category tabs** filter by Technical / Coding / System Design / Behavioral /
   Role-Specific / Domain.
-- Each **question card** shows:
-  - a **frequency badge** ("seen in 4 sources") — how many independent sites report it;
-  - click the card to expand the **tailored answer** (behavioral answers are
-    STAR-structured around your actual projects), **why they ask this**, **tips**,
-    and clickable **source links**.
+- Each **question card** shows its category badge; click the card to expand the
+  **tailored answer** (behavioral answers are STAR-structured around your actual
+  projects), **why they ask this**, **tips**, and the names of the **sites that
+  reported the question** (AmbitionBox, Reddit, GeeksforGeeks, …).
 - **Amber banner?** It means there's little public interview data for that company.
-  The questions are still real and relevant, but they're role/skill-based
-  (marked *generic*) rather than company-reported. Never fabricated — cards without a
-  real source are always labeled.
+  The questions are still real and relevant, but they're role/skill-based rather
+  than company-reported.
 
 ### Exporting your prep sheet
 
@@ -118,58 +117,21 @@ or re-run after the posting changes (a different JD text re-triggers extraction)
 
 ---
 
-## Part 3 — Deploying it in the future
+## Part 3 — Deploying it beyond your machine
 
-Today the app is strictly local. If you later want it reachable beyond your own machine,
-these are the realistic paths, from easiest to most involved.
+There is a dedicated, detailed guide for this: **[DEPLOYMENT.md](DEPLOYMENT.md)**. It covers,
+with steps, sizing, providers, and a cost comparison:
 
-### Option A — Share on your home/office LAN (zero code changes)
+- **Option A ($0):** keep everything on your PC and reach it from anywhere via
+  Tailscale or Cloudflare Tunnel — the recommended first step.
+- **Option B ($0–9/mo):** move the whole stack to one small CPU VPS (Oracle free tier or
+  Hetzner ARM) and run it as an always-on service with HTTPS + login in front.
+- **Option C (usage-based):** hourly GPU rentals only when Quality-mode speed matters.
+- **Option D:** what would need re-architecting before it could serve multiple real users.
 
-Docker already publishes port 3000 on all interfaces. Anyone on your network can use it at
-`http://<your-PC's-LAN-IP>:3000` (find yours with `ipconfig`). Allow port 3000 through
-Windows Firewall when prompted. Your PC must stay on, with Ollama and Docker running.
-
-> ⚠️ There is **no login system** — anyone on the network can run research jobs and see
-> cached runs. Fine for home; think twice on shared networks.
-
-### Option B — Access your home instance from anywhere (recommended next step)
-
-Keep everything on your PC and add a private tunnel — no server rental, no exposed ports:
-
-- **Tailscale** (easiest): install on your PC and phone/laptop, then open
-  `http://<tailscale-ip>:3000` from anywhere. Free for personal use.
-- **Cloudflare Tunnel**: gives you a public `https://yourapp.example.com` URL without
-  opening firewall ports. Add Cloudflare Access in front for authentication.
-
-This is the best effort-to-value deployment for a personal tool.
-
-### Option C — Rent a server (VPS / cloud VM)
-
-To take your PC out of the loop, deploy the whole stack to one Linux VM:
-
-1. **Pick a machine.** The 7B model wants either a GPU (e.g. an RTX-class VPS from
-   Hetzner/OVH/RunPod, or a cloud T4 instance) **or** ≥8 vCPU + 16 GB RAM for CPU-only
-   inference (slower but works — this app is not latency-critical).
-2. **Install Docker + Ollama on the VM** (on Linux, Ollama can run in Docker with
-   `--gpus all`, or natively via the install script — the Windows-specific
-   "native only" constraint doesn't apply there).
-3. **Copy the repo** and change one line in `docker-compose.yml` if Ollama runs in a
-   container: point `OLLAMA_BASE_URL` at that container (e.g. `http://ollama:11434`)
-   instead of `host.docker.internal`.
-4. `docker compose up -d`, then put a reverse proxy with HTTPS + auth in front
-   (Caddy is the least-effort choice: automatic HTTPS + one-line basic-auth).
-
-**Before exposing it publicly you should add:** authentication (reverse-proxy basic-auth
-at minimum), rate limiting (each run is minutes of GPU/CPU time — one job queue per
-instance), and be aware that all users share one results cache.
-
-### Option D — Managed cloud (only if it becomes a real product)
-
-Frontend/backend containers fit any container platform (Fly.io, Railway, Cloud Run), but
-the LLM part is the constraint: you'd host Ollama on a GPU box (RunPod, Modal, a GPU VM)
-and point `OLLAMA_BASE_URL` at it. At that point also swap SQLite for Postgres and add a
-proper job queue. This contradicts the "fully local" design goal — only worth it if the
-app outgrows personal use.
+The short version of the cost-efficient strategy: start with Tailscale (free, ten minutes),
+move to a cheap ARM VPS only when "my PC must stay on" becomes annoying, and don't rent a
+24/7 GPU — this app tolerates slow background runs.
 
 ### What never changes
 

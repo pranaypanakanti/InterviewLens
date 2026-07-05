@@ -69,7 +69,7 @@ export default function App() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-600 font-bold text-white">IL</span>
             <div>
               <h1 className="text-lg font-semibold leading-tight">InterviewLens</h1>
-              <p className="text-xs text-slate-500">Fully-local interview-prep research</p>
+              <p className="text-xs text-slate-500">Interview-prep research assistant</p>
             </div>
           </div>
           {health && (

@@ -1,17 +1,104 @@
 # InterviewLens
 
-A **fully-local** interview-prep research app. Give it a job description and your resume; it
-researches the web for the interview questions most commonly asked at that company for that role,
-and presents categorized question cards — each with a resume-tailored answer and real source links.
+An interview-prep research app. Give it a **job description + your resume**; it researches the
+web for the interview questions most commonly reported for that company and role, and builds a
+prep sheet of categorized question cards — each with an answer tailored to *your* resume.
 
-- **All LLM inference is local** (Ollama on your machine). Zero cloud LLM calls, zero API keys.
-- Internet is used **only for search**, via a self-hosted [SearXNG](https://github.com/searxng/searxng) metasearch engine.
+- **LLM inference runs on your own machine** via [Ollama](https://ollama.com) — no cloud LLM APIs, no API keys, no accounts.
+- The internet is used **only for web search**, through a self-hosted [SearXNG](https://github.com/searxng/searxng) metasearch instance.
 - One command to run: `docker compose up`.
+
+📖 **Docs:** [User Guide](USER-GUIDE.md) (setup & usage) · [Deployment Guide](DEPLOYMENT.md) (moving it to the cloud) · [setup.md](setup.md) (install troubleshooting)
+
+## Features
+
+- **Company-specific research** — searches community sources (AmbitionBox, GeeksforGeeks, Reddit, Blind, InterviewBit, …) for questions actually reported for the target company and role.
+- **Resume-tailored answers** — every question comes with a draft answer built around your projects and experience; behavioral answers are STAR-structured.
+- **Categorized prep sheet** — Technical / Coding / System Design / Behavioral / Role-Specific / Domain tabs.
+- **Two quality modes** — Fast (3B model) for iteration, Quality (7B model) for the final prep.
+- **Live progress** — the research pipeline streams its progress over SSE (parsing → searching → reading → clustering → answering); no blind spinner.
+- **Honest degradation** — blocked sites are skipped; if a company has little public interview data, the app tops up with role/skill-based questions and says so with a banner. It never fabricates sources.
+- **Caching** — runs are cached in SQLite by (company, role, mode); repeating a search returns in under 2 seconds.
+- **Export** — download the sheet as Markdown, or as PDF via a print-optimized layout.
+
+## Architecture
+
+```
+                       ┌────────────────────────── Docker ──────────────────────────┐
+  Browser ──────────►  │  frontend (nginx + React)  :3000                           │
+                       │        │  /api (proxy, SSE-safe)                           │
+                       │        ▼                                                   │
+                       │  backend (FastAPI)  :8000 ──────► searxng ◄──── redis      │
+                       │        │                     (metasearch JSON API)         │
+                       └────────┼───────────────────────────────────────────────────┘
+                                ▼
+                       Ollama (native on host)  :11434
+                       qwen2.5 3B / 7B + nomic-embed-text
+```
+
+### The research pipeline
+
+```
+JD + resume ──► parse (PyMuPDF / python-docx)
+            ──► extract entities — company, role, skills (3B LLM, JSON-schema-constrained)
+            ──► generate search queries (company-specific + skill fallbacks)
+            ──► SearXNG metasearch (self-hosted, JSON API)
+            ──► fetch pages (httpx + trafilatura; robots.txt-aware, skip-on-block)
+            ──► extract interview questions per source (3B LLM, JSON)
+            ──► dedupe/cluster via embeddings (nomic-embed-text, cosine similarity)
+            ──► rank by cross-source frequency; top up with labeled generic questions if thin
+            ──► write resume-tailored answers (7B Quality / 3B Fast)
+            ──► store in SQLite, stream progress via SSE throughout
+```
+
+Design decisions worth knowing:
+
+- **JSON-schema-constrained generation.** Every LLM call passes a JSON schema through Ollama's
+  `format` parameter, so small models return parseable, well-typed output.
+- **Company-mention verification.** A source only counts as *company-reported* evidence if its
+  text actually names the company — search engines return fuzzy matches, so query origin alone
+  is not trusted. Fewer than 8 company-reported questions triggers the "limited data" banner.
+- **Snippet fallback.** Sites that block scraping (Glassdoor, LinkedIn) still contribute their
+  search-result snippets as weak evidence instead of being lost entirely.
+- **Two-tier cache.** Entity extraction is cached by a hash of the inputs; full results are
+  cached by (company, role, mode). Both live in one SQLite file under `./data/`.
+
+## Tech stack
+
+| Layer | Technology | Why |
+|---|---|---|
+| LLM inference | Ollama (native host) · qwen2.5 3B & 7B q4, nomic-embed-text | Local, free, fits a 4 GB GPU |
+| Backend | Python 3.12 · FastAPI · httpx · trafilatura · PyMuPDF | Async pipeline + SSE streaming |
+| Search | SearXNG (self-hosted) + Valkey/Redis cache | Metasearch across engines, no API keys |
+| Storage | SQLite (single file volume) | Zero-ops caching |
+| Frontend | React 18 · Vite · Tailwind CSS, served by nginx | Single-page state machine: input → progress → results |
+| Orchestration | Docker Compose (4 services) | One-command startup |
+
+## Project structure
+
+```
+backend/app/
+  main.py            # FastAPI routes: /api/analyze, /api/jobs/{id}/events (SSE), /api/health
+  pipeline.py        # The end-to-end research pipeline
+  jobs.py            # In-memory job manager + SSE event history
+  db.py              # SQLite cache (entities + results)
+  services/
+    ollama.py        # Ollama client: schema-constrained chat, embeddings, health
+    searxng.py       # SearXNG JSON API client
+    fetcher.py       # Concurrent page fetching, robots.txt, clean-text extraction
+    extraction.py    # LLM prompts + JSON schemas (entities, questions, generics)
+    clustering.py    # Embedding-based dedupe + frequency ranking
+    answers.py       # Tailored answer generation
+    parsing.py       # Resume parsing (PDF / DOCX / TXT)
+frontend/src/        # React app (App, InputPanel, ProgressView, ResultsView, QuestionCard)
+searxng/settings.yml # SearXNG config (JSON API enabled, engine resilience tuning)
+docker-compose.yml   # frontend + backend + searxng + redis
+```
 
 ## Quick start
 
 ```bash
-# 1. Install Ollama natively on Windows (https://ollama.com), then pull the models:
+# 1. Install Ollama (https://ollama.com), then pull the models:
 ollama pull qwen2.5:3b-instruct-q4_K_M
 ollama pull qwen2.5:7b-instruct-q4_K_M
 ollama pull nomic-embed-text
@@ -19,55 +106,32 @@ ollama pull nomic-embed-text
 # 2. From the project root:
 docker compose up --build
 
-# 3. Open http://localhost:3000
+# 3. Open http://localhost:3000  — the header badge should say "all systems ready"
 ```
 
-> **Ollama must run natively on the host, not in Docker.** GPU passthrough for a GTX 1650 on
-> Windows/WSL2 is unreliable; the backend container reaches host Ollama via
-> `host.docker.internal:11434`. See [setup.md](setup.md) for details and troubleshooting.
+> **On Windows, Ollama must run natively on the host, not in Docker** — GPU passthrough for
+> consumer GPUs under WSL2 is unreliable. The backend container reaches host Ollama via
+> `host.docker.internal:11434`. On Linux servers, Ollama in Docker is fine
+> (see the [Deployment Guide](DEPLOYMENT.md)).
 
-📖 **New here? Read the [User Guide](USER-GUIDE.md)** — step-by-step setup, how to use the
-app, and options for deploying it beyond your own machine.
+## Configuration
 
-## How it works
+All configuration is environment variables on the `backend` service in `docker-compose.yml`:
 
-```
-JD + resume ──► parse ──► extract entities (3B LLM, JSON)
-            ──► generate search queries ──► SearXNG (self-hosted metasearch)
-            ──► fetch pages (httpx + trafilatura, skip-on-block)
-            ──► extract interview questions per source (3B LLM, JSON)
-            ──► dedupe/cluster via embeddings (nomic-embed-text), rank by source frequency
-            ──► write resume-tailored answers (7B Quality / 3B Fast)
-            ──► cache in SQLite, stream progress over SSE
-```
+| Variable | Default | Purpose |
+|---|---|---|
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Where Ollama listens |
+| `SEARXNG_URL` | `http://searxng:8080` | Self-hosted search endpoint |
+| `EXTRACT_MODEL` | `qwen2.5:3b-instruct-q4_K_M` | Entity/question extraction |
+| `ANSWER_MODEL` | `qwen2.5:7b-instruct-q4_K_M` | Quality-mode answers |
+| `EMBED_MODEL` | `nomic-embed-text` | Question clustering |
+| `NUM_CTX` | `4096` | Context window (tuned for 4 GB VRAM) |
 
-- **Fast (3B) / Quality (7B)** toggle: answers are quality-critical but not latency-critical.
-  The 7B model partially offloads to CPU on a 4 GB GPU — slower, noticeably better.
-- **Graceful degradation:** blocked sources (Glassdoor, LinkedIn) are skipped silently; their
-  search snippets still count as weak evidence. If a company has little public interview data,
-  the app tops up with role/skill-based questions clearly labeled *generic* — it never fabricates
-  a source.
-- **Caching:** runs are cached in SQLite by (company, role, mode); re-running the same inputs
-  returns in under 2 seconds.
-- **Export:** download your prep sheet as Markdown or PDF (print dialog).
-
-## Services
-
-| Service    | Where           | Port | Purpose                                |
-|------------|-----------------|------|----------------------------------------|
-| frontend   | Docker (nginx)  | 3000 | React UI, proxies `/api` to backend     |
-| backend    | Docker          | 8000 | FastAPI pipeline + SSE progress         |
-| searxng    | Docker          | —    | Self-hosted metasearch (JSON API)       |
-| redis      | Docker          | —    | SearXNG cache                           |
-| **Ollama** | **Native host** | 11434| Local LLM + embedding inference         |
-
-## Health check
-
-`http://localhost:8000/api/health` reports Ollama reachability, which models are pulled, and
-SearXNG JSON-API status. The UI shows the same as a badge in the header.
+`GET /api/health` reports Ollama reachability, pulled models, and SearXNG status — the UI shows
+the same as a header badge.
 
 ## Hardware target
 
-Tuned for: NVIDIA GTX 1650 (4 GB VRAM), i5-12450H, 16 GB RAM, Windows 11.
-Only q4-quantized models; `num_ctx=4096`; the 3B extract model fits fully on GPU, the 7B answer
-model partially offloads to CPU (expected and fine).
+Developed and tuned on an NVIDIA GTX 1650 (4 GB VRAM), i5-12450H, 16 GB RAM, Windows 11.
+The 3B model fits fully on the GPU; the 7B answer model partially offloads to CPU (expected).
+CPU-only machines work too — just slower. See [DEPLOYMENT.md](DEPLOYMENT.md) for cloud sizing.

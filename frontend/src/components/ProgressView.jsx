@@ -69,7 +69,7 @@ export default function ProgressView({ events }) {
         </ul>
 
         <p className="mt-5 text-center text-xs text-slate-400">
-          Everything runs locally — research can take a few minutes, answers longest.
+          Research can take a few minutes — writing the answers takes the longest.
         </p>
       </div>
     </div>
