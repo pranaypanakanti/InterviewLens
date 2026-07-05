@@ -46,6 +46,7 @@ JD + resume ──► parse (PyMuPDF / python-docx)
             ──► fetch pages (httpx + trafilatura; robots.txt-aware, skip-on-block)
             ──► extract interview questions per source (3B LLM, JSON)
             ──► dedupe/cluster via embeddings (nomic-embed-text, cosine similarity)
+            ──► filter out off-role questions (3B LLM judge vs. the user-given job role)
             ──► rank by cross-source frequency; top up with labeled generic questions if thin
             ──► write resume-tailored answers (7B Quality / 3B Fast)
             ──► store in SQLite, stream progress via SSE throughout
@@ -58,6 +59,10 @@ Design decisions worth knowing:
 - **Company-mention verification.** A source only counts as *company-reported* evidence if its
   text actually names the company — search engines return fuzzy matches, so query origin alone
   is not trusted. Fewer than 8 company-reported questions triggers the "limited data" banner.
+- **Role relevance filter.** Scraped pages are noisy; after clustering, an LLM judge removes
+  questions clearly unrelated to the user-entered job role (wrong profession, contentless
+  filler) while always keeping behavioral questions. Conservative by design: on any doubt or
+  LLM failure, the question is kept.
 - **Snippet fallback.** Sites that block scraping (Glassdoor, LinkedIn) still contribute their
   search-result snippets as weak evidence instead of being lost entirely.
 - **Two-tier cache.** Entity extraction is cached by a hash of the inputs; full results are

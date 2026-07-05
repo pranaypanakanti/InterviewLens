@@ -4,7 +4,7 @@ const STAGES = [
   { id: 'searching', label: 'Searching the web' },
   { id: 'reading', label: 'Reading sources' },
   { id: 'questions', label: 'Finding common questions' },
-  { id: 'ranking', label: 'Ranking by frequency' },
+  { id: 'ranking', label: 'Ranking & filtering off-role questions' },
   { id: 'answering', label: 'Writing tailored answers' },
 ]
 

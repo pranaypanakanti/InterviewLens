@@ -1,6 +1,7 @@
-export async function startAnalysis({ jdText, resumeFile, mode, force }) {
+export async function startAnalysis({ jdText, jobRole, resumeFile, mode, force }) {
   const form = new FormData()
   form.append('jd_text', jdText)
+  form.append('job_role', jobRole)
   form.append('resume_file', resumeFile)
   form.append('mode', mode)
   form.append('force', force ? 'true' : 'false')

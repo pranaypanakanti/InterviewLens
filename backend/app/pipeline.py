@@ -15,6 +15,7 @@ from .services.extraction import (
     extract_jd_entities,
     extract_questions_from_doc,
     extract_resume_entities,
+    filter_relevant_questions,
     generate_generic_questions,
 )
 from .services.fetcher import fetch_many
@@ -65,16 +66,17 @@ async def run_pipeline(
     resume_bytes: bytes,
     mode: str,
     force: bool,
+    job_role: str = "",
 ):
     started = time.time()
     try:
-        await _run(job, jd_text, resume_filename, resume_bytes, mode, force, started)
+        await _run(job, jd_text, resume_filename, resume_bytes, mode, force, job_role, started)
     except Exception as exc:
         log.exception("Pipeline failed")
         await job.fail(f"Research failed: {exc}")
 
 
-async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started):
+async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, job_role, started):
     # 1. Parse inputs -----------------------------------------------------
     await job.publish("parsing", "Parsing resume and job description…", 3)
     resume_text = parse_resume(resume_filename, resume_bytes)
@@ -93,6 +95,11 @@ async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started
         db.save_entities(input_hash, {"jd": jd_entities, "resume": resume_entities})
 
     company = jd_entities.get("company", "") or "unknown"
+    # The user-supplied role is authoritative: it drives search queries, the
+    # relevance filter, and the cache key.
+    job_role = (job_role or "").strip()
+    if job_role:
+        jd_entities["job_title"] = job_role
     title = jd_entities.get("job_title", "") or "unknown"
     await job.publish(
         "entities", f"Detected: {company} — {title}", 12, company=company, job_title=title
@@ -181,8 +188,21 @@ async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started
         )
 
     # 7. Dedupe + rank ---------------------------------------------------------
-    await job.publish("ranking", "Clustering duplicates and ranking by frequency…", 66)
+    await job.publish("ranking", "Clustering duplicates and ranking by frequency…", 64)
     ranked = await cluster_and_rank(raw_questions)
+
+    # 7b. Relevance filter: sources are noisy — drop questions clearly unrelated
+    # to the target role (wrong profession, contentless filler).
+    before_filter = len(ranked)
+    await job.publish("ranking", f"Filtering off-role questions… ({before_filter} candidates)", 67)
+    ranked = await filter_relevant_questions(
+        ranked, title, jd_entities.get("key_skills", []), jd_entities.get("domain", "")
+    )
+    filtered_out = before_filter - len(ranked)
+    if filtered_out:
+        await job.publish(
+            "ranking", f"Removed {filtered_out} question(s) unrelated to {title}", 69
+        )
 
     # 8. Fallback top-up: never return fewer than MIN_QUESTIONS ---------------
     # "Limited data" means few sources actually name the company — skill-based
@@ -198,7 +218,12 @@ async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started
             70,
         )
         existing = {q["question"].lower() for q in ranked}
-        for g in await generate_generic_questions(jd_entities, need):
+        generics = await generate_generic_questions(jd_entities, need)
+        # Generated questions go through the same relevance gate as scraped ones.
+        generics = await filter_relevant_questions(
+            generics, title, jd_entities.get("key_skills", []), jd_entities.get("domain", "")
+        )
+        for g in generics:
             if g["question"].lower() not in existing:
                 ranked.append(
                     {
@@ -236,6 +261,7 @@ async def _run(job, jd_text, resume_filename, resume_bytes, mode, force, started
         "sources_read": len(fetched),
         "snippet_sources": len(snippet_docs),
         "raw_question_count": len(raw_questions),
+        "filtered_out": filtered_out,
         "questions": answered,
         "duration_s": round(time.time() - started, 1),
         "from_cache": False,

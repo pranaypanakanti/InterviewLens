@@ -17,12 +17,12 @@ export default function App() {
     return () => esRef.current && esRef.current.close()
   }, [])
 
-  const research = useCallback(async ({ jdText, resumeFile, mode, force }) => {
+  const research = useCallback(async ({ jdText, jobRole, resumeFile, mode, force }) => {
     setError(null)
     setEvents([])
     setResult(null)
     try {
-      const jobId = await startAnalysis({ jdText, resumeFile, mode, force })
+      const jobId = await startAnalysis({ jdText, jobRole, resumeFile, mode, force })
       setView('progress')
       esRef.current = subscribeToJob(
         jobId,

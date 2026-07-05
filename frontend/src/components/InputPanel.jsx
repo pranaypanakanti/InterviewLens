@@ -2,12 +2,13 @@ import { useRef, useState } from 'react'
 
 export default function InputPanel({ onSubmit }) {
   const [jdText, setJdText] = useState('')
+  const [jobRole, setJobRole] = useState('')
   const [resumeFile, setResumeFile] = useState(null)
   const [mode, setMode] = useState('quality')
   const [dragOver, setDragOver] = useState(false)
   const fileInput = useRef(null)
 
-  const canSubmit = jdText.trim().length >= 40 && resumeFile
+  const canSubmit = jdText.trim().length >= 40 && jobRole.trim().length >= 2 && resumeFile
 
   const pickFile = (file) => {
     if (!file) return
@@ -26,6 +27,24 @@ export default function InputPanel({ onSubmit }) {
         <p className="mt-1 text-sm text-slate-500">
           Paste the job description and drop your resume. InterviewLens searches the web for the
           questions actually asked at that company, then writes answers tailored to you.
+        </p>
+      </div>
+
+      {/* Job role */}
+      <div className="mx-auto mb-6 max-w-lg">
+        <label className="mb-2 block text-sm font-medium text-slate-700">
+          Job role you&apos;re applying for
+        </label>
+        <input
+          type="text"
+          className="w-full rounded-lg border border-slate-200 p-3 text-sm focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500"
+          placeholder="e.g. Software Development Engineer II"
+          value={jobRole}
+          maxLength={120}
+          onChange={(e) => setJobRole(e.target.value)}
+        />
+        <p className="mt-1 text-xs text-slate-400">
+          Used to target the research and to filter out questions unrelated to this role.
         </p>
       </div>
 
@@ -112,7 +131,7 @@ export default function InputPanel({ onSubmit }) {
         </p>
         <button
           disabled={!canSubmit}
-          onClick={() => onSubmit({ jdText, resumeFile, mode, force: false })}
+          onClick={() => onSubmit({ jdText, jobRole: jobRole.trim(), resumeFile, mode, force: false })}
           className="rounded-xl bg-accent-600 px-10 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Research →

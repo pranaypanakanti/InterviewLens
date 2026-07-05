@@ -61,12 +61,17 @@ async def health():
 @app.post("/api/analyze")
 async def analyze(
     jd_text: str = Form(...),
+    job_role: str = Form(""),
     resume_file: UploadFile = None,
     mode: str = Form("quality"),
     force: bool = Form(False),
 ):
     if not jd_text or len(jd_text.strip()) < 40:
         raise HTTPException(422, "Job description is too short — paste the full JD.")
+    if not job_role or len(job_role.strip()) < 2:
+        raise HTTPException(422, "Job role is required (e.g. 'Software Engineer').")
+    if len(job_role.strip()) > 120:
+        raise HTTPException(422, "Job role is too long — use the title, not a description.")
     if resume_file is None:
         raise HTTPException(422, "A resume file (.pdf/.docx/.txt) is required.")
     if mode not in ("fast", "quality"):
@@ -77,7 +82,10 @@ async def analyze(
 
     job = jobs.create()
     asyncio.create_task(
-        run_pipeline(job, jd_text, resume_file.filename or "", resume_bytes, mode, force)
+        run_pipeline(
+            job, jd_text, resume_file.filename or "", resume_bytes, mode, force,
+            job_role.strip(),
+        )
     )
     return {"job_id": job.id}
 

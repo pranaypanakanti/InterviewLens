@@ -59,14 +59,17 @@ To stop the app: `docker compose down` (your cached research runs survive in `./
 
 ### Running a research
 
-1. **Paste the job description** into the left panel. Include the company name —
+1. **Type the job role** you're applying for (e.g. "Software Development Engineer II").
+   This targets the web research and is used to filter out questions that aren't
+   relevant to the role.
+2. **Paste the job description** into the left panel. Include the company name —
    that's what drives the company-specific research.
-2. **Drop your resume** (`.pdf`, `.docx`, or `.txt`) into the right panel.
-3. **Pick a mode:**
+3. **Drop your resume** (`.pdf`, `.docx`, or `.txt`) into the right panel.
+4. **Pick a mode:**
    - **Fast (3B)** — results in ~5 minutes. Good for a first pass.
    - **Quality (7B)** — noticeably better, more nuanced answers; slower
      (the 7B model partially runs on CPU with 4 GB VRAM). Use it for the final prep.
-4. Click **Research →** and watch the live checklist: parsing → extracting company/role →
+5. Click **Research →** and watch the live checklist: parsing → extracting company/role →
    searching the web → reading sources → finding common questions → writing answers.
    A full run takes roughly 5–10 minutes depending on mode.
 
