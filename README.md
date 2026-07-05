@@ -130,12 +130,6 @@ All configuration is environment variables on the `backend` service in `docker-c
 `GET /api/health` reports Ollama reachability, pulled models, and SearXNG status — the UI shows
 the same as a header badge.
 
-## Hardware target
-
-Developed and tuned on an NVIDIA GTX 1650 (4 GB VRAM), i5-12450H, 16 GB RAM, Windows 11.
-The 3B model fits fully on the GPU; the 7B answer model partially offloads to CPU (expected).
-CPU-only machines work too — just slower.
-
 ## License
 
 [MIT](LICENSE)
