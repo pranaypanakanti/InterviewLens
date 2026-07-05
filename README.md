@@ -114,6 +114,21 @@ docker compose up --build
 > `host.docker.internal:11434`. On Linux servers, Ollama in Docker is fine —
 > point `OLLAMA_BASE_URL` at the container instead.
 
+### Run from Docker Hub (no clone, no build)
+
+Prebuilt images are on Docker Hub:
+[`pranaypanakanti/interviewlens-backend`](https://hub.docker.com/r/pranaypanakanti/interviewlens-backend) ·
+[`pranaypanakanti/interviewlens-frontend`](https://hub.docker.com/r/pranaypanakanti/interviewlens-frontend)
+
+With Ollama installed and the three models pulled (step 1 above), all you need is one file:
+
+```bash
+curl -LO https://raw.githubusercontent.com/pranaypanakanti/InterviewLens/main/docker-compose.hub.yml
+docker compose -f docker-compose.hub.yml up -d
+```
+
+Then open http://localhost:3000.
+
 ## Configuration
 
 All configuration is environment variables on the `backend` service in `docker-compose.yml`:

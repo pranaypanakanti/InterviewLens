@@ -1,0 +1,79 @@
+# Run InterviewLens from prebuilt Docker Hub images — no repo clone needed.
+#
+#   Prereqs: Ollama running on the host (https://ollama.com) with:
+#     ollama pull qwen2.5:3b-instruct-q4_K_M
+#     ollama pull qwen2.5:7b-instruct-q4_K_M
+#     ollama pull nomic-embed-text
+#
+#   Run:  docker compose -f docker-compose.hub.yml up -d
+#   Open: http://localhost:3000
+#
+# Requires Docker Compose v2.23.1+ (for inline configs).
+
+services:
+  frontend:
+    image: pranaypanakanti/interviewlens-frontend:latest
+    ports: ["3000:80"]
+    depends_on: [backend]
+    restart: unless-stopped
+
+  backend:
+    image: pranaypanakanti/interviewlens-backend:latest
+    ports: ["8000:8000"]
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - SEARXNG_URL=http://searxng:8080
+      - EXTRACT_MODEL=qwen2.5:3b-instruct-q4_K_M
+      - ANSWER_MODEL=qwen2.5:7b-instruct-q4_K_M
+      - FAST_ANSWER_MODEL=qwen2.5:3b-instruct-q4_K_M
+      - EMBED_MODEL=nomic-embed-text
+      - NUM_CTX=4096
+    volumes: ["./data:/app/data"]
+    extra_hosts: ["host.docker.internal:host-gateway"]  # Linux containers -> host Ollama
+    depends_on: [searxng]
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    configs:
+      - source: searxng_settings
+        target: /etc/searxng/settings.yml
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+      # Override with your own random value: openssl rand -hex 32
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-interviewlens-local-only-change-me}
+    depends_on: [redis]
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+
+configs:
+  searxng_settings:
+    content: |
+      # InterviewLens SearXNG config. Two required deviations from defaults:
+      #   1. search.formats includes "json" — the backend consumes the JSON API.
+      #   2. server.limiter is off — the backend is the only client.
+      use_default_settings: true
+      server:
+        limiter: false
+        public_instance: false
+        image_proxy: false
+      search:
+        formats:
+          - html
+          - json
+        suspended_times:
+          SearxEngineTooManyRequests: 60
+          SearxEngineCaptcha: 300
+          SearxEngineAccessDenied: 60
+      engines:
+        - name: bing
+          disabled: false
+        - name: mojeek
+          disabled: false
+        - name: qwant
+          disabled: false
+      valkey:
+        url: valkey://redis:6379/0
